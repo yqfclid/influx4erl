@@ -1,0 +1,21 @@
+{application, influx,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, { influx_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    hackney
+   ]},
+  {env,[{load_confs, [{default, [{protocol, http},
+                                 {host, <<"localhost">>},
+                                 {port, 8089},
+                                 {database, <<"test">>}]}]}
+        ]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
