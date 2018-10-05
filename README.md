@@ -1,1 +1,1 @@
-influx engine for erlang
+influx client for erlang
