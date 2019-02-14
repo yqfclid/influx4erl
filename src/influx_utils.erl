@@ -36,14 +36,12 @@ encode_writen_payload(#{measurement := Measurement,
         end,
     TagsB = encode_tags(Tags),
     FieldsB = encode_fields(Fields),
-    Payload = 
-        case TimeB of
-            ?EMPTY ->
-                <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary>>;
-            _ ->
-                <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary, ?SPACE/binary, TimeB/binary>>
-        end,
-    {ok, Payload};
+    case TimeB of
+        ?EMPTY ->
+            <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary>>;
+        _ ->
+            <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary, ?SPACE/binary, TimeB/binary>>
+    end;
 encode_writen_payload(_Data) ->
     erlang:throw(badarg).
     
