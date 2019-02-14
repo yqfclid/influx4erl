@@ -64,8 +64,8 @@ register_worker(_, _) ->
 
 delete_worker(Name) ->
     case ets:lookup(influx_workers, Name) of
-        [#{protocol := udp,
-           pid := Pid}] when is_pid(Pid)->
+        [{Name, #{protocol := udp,
+                  pid := Pid}}] when is_pid(Pid)->
             influx_udp:stop(Pid, stop),
             ets:delete(influx_workers, Name);
         _ ->

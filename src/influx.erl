@@ -33,12 +33,12 @@ all_workers() ->
 
 write_point(Name, Data) ->
     case ets:lookup(influx_workers, Name) of
-        [#{protocol := http} = Conf] ->
+        [{Name, #{protocol := http} = Conf}] ->
             influx_http:write_point(Conf, Data);
-        [#{protocol := udp,
-           pid := Pid}] when is_pid(Pid) ->
+        [{Name, #{protocol := udp,
+                  pid := Pid}}] when is_pid(Pid) ->
             influx_udp:write_point(Pid, Data);
-        [#{protocol := udp} = Conf] ->
+        [{Name, #{protocol := udp} = Conf}] ->
             case influx_udp:start_udp(Conf) of
                 {ok, Pid} ->
                     ets:insert(influx_workers, {Name, Conf#{pid => Pid}}),
@@ -62,10 +62,10 @@ do_bwrite_point(_Data, '$end_of_table') ->
     ok;
 do_bwrite_point(Data, Name) ->
     case ets:lookup(influx_workers, Name) of
-        [#{protocol := http} = Conf] ->
+        [{Name, #{protocol := http} = Conf}] ->
             influx_http:write_point(Conf, Data);
-        [#{protocol := udp,
-           pid := Pid}] when is_pid(Pid) ->
+        [{Name, #{protocol := udp,
+                  pid := Pid}}] when is_pid(Pid) ->
             influx_udp:write_point(Pid, Data);
         _ ->
             ok
@@ -74,7 +74,7 @@ do_bwrite_point(Data, Name) ->
 
 read_points(Name, QueryOpt) ->
     case ets:lookup(influx_workers, Name) of
-        [#{protocol := http} = Conf] ->
+        [{Name, #{protocol := http} = Conf}] ->
             influx_http:read_points(Conf, QueryOpt);
         [_] ->
             {error, bad_worker};
