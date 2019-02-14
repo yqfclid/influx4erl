@@ -12,7 +12,7 @@
 
 %% API
 -export([start_link/1]).
--export([write_points/5]).
+-export([write_point/2]).
 -export([stop/1]).
 
 %% gen_server callbacks
@@ -23,28 +23,28 @@
          terminate/2,
          code_change/3]).
 
--include("influx.hrl").
-
--record(state, {influx_conf,
-				udp_port,
-				socket
-				}).
+-record(state, {host, port, udp_port, socket}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-write_points(InfluxConf, Measurement, Tags, Fields, Options) when is_record(InfluxConf, influx_conf) ->
-	#influx_conf{name = Name} = InfluxConf,
-	write_points(Name, Measurement, Tags, Fields, Options);
-write_points(Name, Measurement, Tags, Fields, Options) ->
-	PName = influx_utils:process_name(?MODULE, Name),
-	gen_server:cast(PName, {write, Measurement, Tags, Fields, Options}).
+start_udp(InfluxConf) ->
+    case supervisor:start_child(influx_udp_sup, [InfluxConf]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, _Info} ->
+            {ok, Pid};
+        {errror, {already_started, Pid}} ->
+            {ok, Pid};
+        {error, Reason} ->
+            {error, Reason}
+    end.
+    
+write_point(Pid, Data) ->
+    gen_server:cast(Pid, {write, Data}).
 
-stop(#influx_conf{name = Name}) ->
-	stop(Name);
-stop(Name) ->
-	PName = influx_utils:process_name(Name),
-	gen_server:cast(PName, stop).
+stop(Pid) ->
+    gen_server:cast(Pid, stop).
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
@@ -53,9 +53,7 @@ stop(Name) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link(InfluxConf) ->
-	#influx_conf{name = Name} = InfluxConf,
-	PName = influx_utils:process_name(?MODULE, Name),
-    gen_server:start_link({local, PName}, ?MODULE, [InfluxConf], []).
+    gen_server:start_link(?MODULE, [InfluxConf], []).
 
 
 %%%===================================================================
@@ -73,16 +71,18 @@ start_link(InfluxConf) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([InfluxConf]) ->
+init([#{host := Host,
+        port := Port}]) ->
     case gen_udp:open(0, [binary, {active, false}, {broadcast, true}]) of
         {ok, Socket} ->
             case inet:port(Socket) of
                 {ok, LocalPort} ->
-                    {ok, #state{influx_conf = InfluxConf,
+                    {ok, #state{host = Host,
+                                port = Port,
                                 socket = Socket,
                                 udp_port = LocalPort}};
                 {error, Reason} ->
-                	lager:warning("parse local udp port failed: ~p", [Reason]),
+                    lager:warning("parse local udp port failed: ~p", [Reason]),
                     ignore
             end;
         {error, Reason} ->
@@ -119,26 +119,25 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({write, Measurement, Tags, Fields, Options}, State) ->
-	#state{influx_conf = InfluxConf,
-		   socket = Socket} = State,
-	#influx_conf{host = Host,
-				 port = Port} = InfluxConf,
-	NHost = host_to_formal_type(Host),
-	NPort = port_to_formal_type(Port),
-	Payload = influx_utils:encode_writen_payload(Measurement, Tags, Fields, Options),
-	case gen_udp:send(Socket, NHost, NPort, Payload) of
-		ok ->
-			lager:debug("[~p] udp -> ~p:~p success", 
-				[?MODULE, Host, Port]);
-		{error, Reason} ->
-			lager:warning("[~p] udp -> ~p:~p failed:~p",
-				[?MODULE, Host, Port, Reason])
-	end,
-	{noreply, State};
+handle_cast({write, Data}, State) ->
+    #state{host = Host,
+           port = Port,
+           socket = Socket} = State,
+    NHost = host_to_formal_type(Host),
+    NPort = port_to_formal_type(Port),
+    Payload = influx_utils:encode_writen_payload(Data),
+    case gen_udp:send(Socket, NHost, NPort, Payload) of
+        ok ->
+            lager:debug("[~p] udp -> ~p:~p success", 
+                [?MODULE, Host, Port]);
+        {error, Reason} ->
+            lager:warning("[~p] udp -> ~p:~p failed:~p",
+                [?MODULE, Host, Port, Reason])
+    end,
+    {noreply, State};
 
 handle_cast(stop, State) ->
-	{stop, normal, State};
+    {stop, normal, State};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -186,19 +185,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 host_to_formal_type(Host) when is_binary(Host) ->
-	binary_to_list(Host);
+    binary_to_list(Host);
 host_to_formal_type(Host) when is_list(Host) ->
-	Host;
+    Host;
 host_to_formal_type(Host) when is_atom(Host) ->
-	Host;
+    Host;
 host_to_formal_type(Host) ->
-	throw({badarg, Host}).
+    throw({badarg, Host}).
 
 port_to_formal_type(Port) when is_integer(Port) ->
-	Port;
+    Port;
 port_to_formal_type(Port) when is_list(Port) ->
-	list_to_integer(Port);
+    list_to_integer(Port);
 port_to_formal_type(Port) when is_binary(Port) ->
-	binary_to_integer(Port);
+    binary_to_integer(Port);
 port_to_formal_type(Port) ->
-	throw({badarg, Port}).
+    throw({badarg, Port}).

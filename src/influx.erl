@@ -9,95 +9,75 @@
 -module(influx).
 
 -export([start/0]).
--export([write_points/3, write_points/4, write_points/5,
-		 bwrite_points/3, bwrite_points/4, bwrite_points/5,
-		 read_points/1, read_points/2, read_points/3]).
--export([start_worker/1, 
-		 delete_worker/1,
-		 get_worker_by_name/1,
-		 get_udp_workers/0,
-		 get_http_workers/0,
-		 get_workers/0]).
-
--include("influx.hrl").
+-export([register_worker/2,
+         delete_worker/1,
+         all_workers/0]).
+-export([write_point/2,
+         bwrite_point/1]).
+-export([read_points/2]).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 start() ->
-	application:ensure_all_started(influx).
+    {ok, _} = application:ensure_all_started(influx).
 
-write_points(Measurement, Tags, Fields) ->
-	write_points(Measurement, Tags, Fields, []).
-
-write_points(Measurement, Tags, Fields, Options) ->
-	case influx_manager:all_workers() of
-		[InfluxConf|_] ->
-			write_points(InfluxConf, Measurement, Tags, Fields, Options);
-		[] ->
-			{error, no_config}
-	end.
-
-write_points(InfluxConf, Measurement, Tags, Fields, Options) ->
-	#influx_conf{protocol = Protocol} = InfluxConf,
-	case influx_utils:get_protocol_mod(Protocol) of
-		{ok, Mod} ->
-			Mod:write_points(InfluxConf, Measurement, Tags, Fields, Options);
-		{error, Reason} ->
-			{error, Reason}
-	end.
-
-bwrite_points(Measurement, Tags, Fields) ->
-	bwrite_points(Measurement, Tags, Fields, []).
-
-bwrite_points(Measurement, Tags, Fields, Options) ->
-	InfluxConfs = influx_manager:all_workers(),
-	lists:foreach(
-		fun(InfluxConf) ->
-			write_points(InfluxConf, Measurement, Tags, Fields, Options)
-	end, InfluxConfs).
-
-bwrite_points(Measurement, Tags, Fields, Options, Protocol) when Protocol =:= udp 
-												   		    orelse Protocol =:= http ->
-	InfluxConfs = influx_manager:lookup_protocol(Protocol),
-	lists:foreach(
-		fun(InfluxConf) ->
-			write_points(InfluxConf, Measurement, Tags, Fields, Options)
-	end, InfluxConfs).
-
-read_points(Query) ->
-	read_points(Query, []).
-
-read_points(Query, Options) ->
-	case influx_manager:lookup_protocol(http) of
-		[InfluxConf|_] ->
-			read_points(InfluxConf, Query, Options);
-		[] ->
-			{error, no_http_config}
-	end.
-
-read_points(InfluxConf, Query, Options) ->
-	influx_http:read_points(InfluxConf, Query, Options).
-
-
-start_worker(Options) ->
-	influx_manager:start_worker(Options).
+register_worker(Name, Conf) ->
+    influx_manager:register_worker(Name, Conf).
 
 delete_worker(Name) ->
-	influx_manager:delete_worker(Name).
+    influx_manager:delete_worker(Name).
 
-get_worker_by_name(Name) ->
-	influx_manager:lookup_name(Name).
+all_workers() ->
+    influx_manager:all_workers().
 
-get_udp_workers() ->
-	influx_manager:lookup_protocol(udp).
+write_point(Name, Data) ->
+    case ets:lookup(influx_workers, Name) of
+        [#{protocol := http} = Conf] ->
+            influx_http:write_point(Conf, Data);
+        [#{protocol := udp,
+           pid := Pid}] when is_pid(Pid) ->
+            influx_udp:write_point(Pid, Data);
+        [#{protocol := udp} = Conf] ->
+            case influx_udp:start_udp(Conf) of
+                {ok, Pid} ->
+                    ets:insert(influx_workers, {Name, Conf#{pid => Pid}}),
+                    influx_udp:write_point(Pid, Data);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        _ ->
+            {error, no_worker}
+    end.
 
-get_http_workers() ->
-	influx_manager:lookup_protocol(http).
+bwrite_point(Data) ->
+    ets:safe_fixtable(influx_workers, true),
+    do_bwrite_point(Data),
+    ets:safe_fixtable(influx_workers, false).
 
-get_workers() ->
-	influx_manager:all_workers().
+do_bwrite_point(Data) ->
+    do_bwrite_point(Data, ets:first(influx_workers)).
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+do_bwrite_point(_Data, '$end_of_table') -> 
+    ok;
+do_bwrite_point(Data, Name) ->
+    case ets:lookup(influx_workers, Name) of
+        [#{protocol := http} = Conf] ->
+            influx_http:write_point(Conf, Data);
+        [#{protocol := udp,
+           pid := Pid}] when is_pid(Pid) ->
+            influx_udp:write_point(Pid, Data);
+        _ ->
+            ok
+    end,
+    do_bwrite_point(Data, ets:next(influx_workers, Name)).
+
+read_points(Name, QueryOpt) ->
+    case ets:lookup(influx_workers, Name) of
+        [#{protocol := http} = Conf] ->
+            influx_http:read_points(Conf, QueryOpt);
+        [_] ->
+            {error, bad_worker};
+        _ ->
+            {error, no_worker}
+    end.

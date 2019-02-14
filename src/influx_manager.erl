@@ -12,11 +12,9 @@
 
 %% API
 -export([start_link/1]).
--export([all_workers/0,
-		 lookup_name/1,
-		 lookup_protocol/1]).
--export([start_worker/1,
-		 delete_worker/1]).
+-export([register_worker/2,
+         delete_worker/1,
+         all_workers/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -35,23 +33,49 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-all_workers() ->
-	gen_server:call(?SERVER, confs).
-
-lookup_name(Name) ->
-	gen_server:call(?SERVER, {lookup_name, Name}).
-
-lookup_protocol(Protocol) ->
-	gen_server:call(?SERVER, {lookup_protocol, Protocol}).
-
-start_worker(#influx_conf{} = InfluxConf) ->
-	gen_server:call(?SERVER, {start_worker, InfluxConf});
-start_worker(Conf) ->
-	InfluxConf = to_influx_conf(Conf),
-	start_worker(InfluxConf).
+register_worker(Name, Conf) when is_map(Conf) ->
+    register_worker(Name, maps:to_list(Conf));
+register_worker(Name, Conf) when is_list(Conf) ->
+    case ets:lookup(influx_workers, Name) of
+        [] ->
+            Protocol = proplists:get_value(protocol, Conf, http),
+            Host = proplists:get_value(host, Conf, <<"localhost">>),
+            Port = proplists:get_value(port, Conf, 8086),
+            UserName = proplists:get_value(username, Conf, undefined),
+            Password = proplists:get_value(password, Conf, undefined),
+            Database = proplists:get_value(database, Conf, undefined),
+            HttpPool = proplists:get_value(http_pool, Conf, undefined),
+            ConfMap = #{protocol => Protocol,
+                        host => Host,
+                        port => Port,
+                        username => UserName,
+                        password => Password,
+                        database => Database,
+                        http_pool => HttpPool},
+            case influx_udp:start_udp(ConfMap) of
+                {ok, Pid} ->
+                    ets:insert_new(influx_workers, {Name, ConfMap#{pid => Pid}});
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        _ ->
+            {error, already_exists}
+    end;
+register_worker(_, _) ->
+    {error, badarg}.
 
 delete_worker(Name) ->
-	gen_server:call(?SERVER, {delete, Name}).
+    case ets:lookup(influx_workers, Name) of
+        [#{protocol := udp,
+           pid := Pid}] when is_pid(Pid)->
+            influx_udp:stop(Pid, stop),
+            ets:delete(influx_workers, Name);
+        _ ->
+            ets:delete(influx_workers, Name)
+    end.
+
+all_workers() ->
+    ets:tab2list(influx_workers).
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
@@ -79,21 +103,16 @@ start_link(InfluxConfs) ->
 %% @end
 %%--------------------------------------------------------------------
 init([InfluxConfs]) ->
-	process_flag(trap_exit, true),
-	NInfluxConfs = 
-		lists:foldl(
-			fun({Name, Conf}, Acc) ->
-				InfluxConf = (to_influx_conf(Conf))#influx_conf{name = Name},
-				case do_start_worker(InfluxConf) of
-					{ok, _} ->
-						maps:put(Name, InfluxConf, Acc);
-					{error, Reason} ->
-						lager:error("start worker with ~p failed:~p", 
-							[InfluxConf, Reason]),
-						Acc
-				end
-		end, #{}, InfluxConfs),
-    {ok, #state{influx_confs = NInfluxConfs}}.
+    lists:foreach(
+        fun({Name, InfluxConf}) ->
+            case register_worker(Name, InfluxConf) of
+                true ->
+                    ok;
+                {error, Reason} ->
+                    lager:error("start name ~p failed: ~p", [Reason])
+            end
+    end, InfluxConfs),
+    {ok, #state{}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -109,60 +128,6 @@ init([InfluxConfs]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(confs, _From, #state{influx_confs = InfluxConfs} = State) ->
-	{_, InfluxConfsList} = lists:unzip(maps:to_list(InfluxConfs)),
-	{reply, InfluxConfsList, State};
-
-handle_call({lookup_protocol, Procotol}, _From, #state{influx_confs = InfluxConfs} = State) ->
-	Reply = maps:fold(
-		fun(_Name, InfluxConf, Acc) ->
-			#influx_conf{protocol = CPrrtocol} = InfluxConf,
-			case CPrrtocol =:= Procotol of
-				true ->
-					Acc ++ [InfluxConf];
-				_ ->
-					Acc
-			end
-		end, [], InfluxConfs),
-	{reply, Reply, State};
-
-handle_call({lookup_name, Name}, _From, #state{influx_confs = InfluxConfs} = State) ->
-	Reply = 
-		case maps:find(Name, InfluxConfs) of
-			{ok, InfluxConf} ->
-				InfluxConf;
-			error ->
-				undefined
-		end,
-	{reply, Reply, State};
-
-handle_call({delete, Name}, _From, #state{influx_confs = InfluxConfs} = State) ->
-	NInfluxConfs = maps:remove(Name, InfluxConfs),
-	Reply = 
-		case maps:find(Name, InfluxConfs) of
-			{ok, #influx_conf{protocol = udp} = InfluxConf} ->
-				influx_udp:stop(InfluxConf);
-			error ->
-				ok
-		end,
-	{reply, Reply, State#state{influx_confs = NInfluxConfs}};
-
-handle_call({start_worker, InfluxConf}, _From, #state{influx_confs = InfluxConfs} = State) ->
-	#influx_conf{name = Name} = InfluxConf,
-	{Reply, NInfluxConfs} = 
-		case maps:find(Name, InfluxConfs) of
-			{ok, _} ->
-				{{error, {name_exist, Name}}, InfluxConfs};
-			error ->
-				case do_start_worker(InfluxConf) of
-					{ok, _} ->
-						{ok, maps:put(Name, InfluxConf, InfluxConfs)};
-					{error, Reason} ->
-						{{error, Reason}, InfluxConfs}
-				end
-		end,
-	{reply, Reply, State#state{influx_confs = NInfluxConfs}};
-
 handle_call(_Request, _From, State) ->
     Reply = ok,
     lager:warning("Can't handle request: ~p", [_Request]),
@@ -225,38 +190,3 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-to_influx_conf(Conf) when is_record(Conf, influx_conf) ->
-	Conf;
-to_influx_conf(Conf) when is_list(Conf)->
-	Protocol = proplists:get_value(protocol, Conf, http),
-	Host = proplists:get_value(host, Conf, <<"localhost">>),
-	Port = proplists:get_value(port, Conf, 8086),
-	UserName = proplists:get_value(username, Conf, undefined),
-	Password = proplists:get_value(password, Conf, undefined),
-	Database = proplists:get_value(database, Conf, undefined),
-	Name = proplists:get_value(name, Conf, default),
-	#influx_conf{protocol = Protocol,
-				 host = Host,
-				 port = Port,
-				 username = UserName,
-				 password = Password,
-				 database = Database,
-				 name = Name};
-to_influx_conf(Conf) ->
-	erlang:throw({error, {bad_config, Conf}}).
-
-do_start_worker(#influx_conf{protocol = udp} = InfluxConf) ->
-	case supervisor:start_child(influx_udp_sup, [InfluxConf]) of
-        {ok, Pid} ->
-        	{ok, Pid};
-        {ok, Pid, _Info} ->
-        	{ok, Pid};
-        {errror, {already_started, Pid}} ->
-        	{ok, Pid};
-        {error, Reason} ->
-        	{error, Reason}
-    end;
-do_start_worker(#influx_conf{protocol = http}) ->
-	{ok, ok};
-do_start_worker(#influx_conf{}) ->
-	{error, ignore}.
