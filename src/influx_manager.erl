@@ -50,11 +50,16 @@ register_worker(Name, Conf) when is_list(Conf) ->
                         password => Password,
                         database => Database,
                         http_pool => HttpPool},
-            case influx_udp:start_udp(ConfMap) of
-                {ok, Pid} ->
-                    ets:insert_new(influx_workers, {Name, ConfMap#{pid => Pid}});
-                {error, Reason} ->
-                    {error, Reason}
+            case Protocol of
+                udp ->
+                    case influx_udp:start_udp(ConfMap) of
+                        {ok, Pid} ->
+                            ets:insert_new(influx_workers, {Name, ConfMap#{pid => Pid}});
+                        {error, Reason} ->
+                            {error, Reason}
+                    end;
+                _ ->
+                    ets:insert_new(influx_workers, {Name, ConfMap})
             end;
         _ ->
             {error, already_exists}
