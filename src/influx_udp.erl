@@ -12,6 +12,7 @@
 
 %% API
 -export([start_link/1]).
+-export([start_udp/1]).
 -export([write_point/2]).
 -export([stop/1]).
 
