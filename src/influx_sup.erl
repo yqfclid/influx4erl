@@ -33,6 +33,7 @@ start_link() ->
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
   InfluxConfs = application:get_env(?APP, load_confs, []),
+  ets:new(influx_workers, [named_table, public, {read_concurrency, true}, set]),
   SupFlags = 
       #{strategy => one_for_one,
           intensity => 10,

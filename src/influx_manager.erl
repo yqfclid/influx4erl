@@ -26,9 +26,7 @@
 
 -define(SERVER, ?MODULE).
 
--include("influx.hrl").
-
--record(state, {influx_confs}).
+-record(state, {}).
 
 %%%===================================================================
 %%% API

@@ -17,8 +17,6 @@
 -define(COMMA, <<",">>).
 -define(EQUAL, <<"=">>).
 
--include("influx.hrl").
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -46,7 +44,7 @@ encode_writen_payload(#{measurement := Measurement,
                 <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary, ?SPACE/binary, TimeB/binary>>
         end,
     {ok, Payload};
-encode_writen_payload(Data) ->
+encode_writen_payload(_Data) ->
     erlang:throw(badarg).
     
 encode_http_path(Conf, Action, Data) ->
@@ -99,9 +97,7 @@ encode_http_path(Conf, Action, Data) ->
                                      password => Password,
                                      database => Database}),
     NPath1 = remove_trailing(Path1),
-    <<Path0/binary, NPath1/binary>>;
-encode_http_path(_, _, _) ->
-    erlang:throw(badarg).
+    <<Path0/binary, NPath1/binary>>.
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
