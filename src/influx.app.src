@@ -10,7 +10,7 @@
    ]},
   {env,[{load_confs, [{default, [{protocol, http},
                                  {host, <<"localhost">>},
-                                 {port, 8089},
+                                 {port, 8086},
                                  {database, <<"test">>}]}]}
         ]},
   {modules, []},
