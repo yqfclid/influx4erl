@@ -8,11 +8,7 @@
     stdlib,
     hackney
    ]},
-  {env,[{load_confs, [{default, [{protocol, http},
-                                 {host, <<"localhost">>},
-                                 {port, 8086},
-                                 {database, <<"test">>}]}]}
-        ]},
+  {env,[]},
   {modules, []},
 
   {maintainers, []},
