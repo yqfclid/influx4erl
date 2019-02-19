@@ -55,7 +55,6 @@ init([]) ->
     {ok, { SupFlags, [Proc2, Proc1]} };
 
 init([influx_udp_sup]) ->
-  erlang:put(1, 2),
   SupFlags = 
       #{strategy => simple_one_for_one,
           intensity => 10,
