@@ -72,8 +72,8 @@ read_stream_body(Ref, Funs) ->
             case parse_data(Body) of
                 {ok, ParsedData} ->
                     lists:foreach(
-                        fun(Fun) -> Fun(ParsedData);
-                           ({Mod, Fun}) -> Mod:Fun(ParsedData) 
+                        fun({Mod, Fun}) -> Mod:Fun(ParsedData);
+                           (Fun) -> Fun(ParsedData)
                     end, Funs),
                     read_stream_body(Ref, Funs);
                 {error, Reason} ->
@@ -106,7 +106,7 @@ decode_json(Json) ->
         {error, {json_parse, Exception}}
     end.
 
-handle_result(#{<<"results">> := Result} = ResultMap) ->
+handle_result(#{<<"results">> := Result}) ->
     NResult = 
         lists:foldl(
             fun(#{<<"series">> := Series}, Acc0) ->
