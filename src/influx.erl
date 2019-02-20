@@ -76,9 +76,17 @@ do_bwrite_point(Data, Name) ->
     end,
     do_bwrite_point(Data, ets:next(influx_workers, Name)).
 
-read_points(Name, QueryOpt) when is_list(QueryOpt) ->
+read_points(Name, Query) ->
+    read_points(Name, Query, #{}).
+
+read_points(Name, Query, QueryOpt) when is_map(QueryOpt)->
+    do_read_points(Name, QueryOpt#{q => Query});
+read_points(Name, Query, QueryOpt) when is_list(QueryOpt) ->
+    do_read_points(Name, [{q, Query}|QueryOpt]).
+
+do_read_points(Name, QueryOpt) when is_list(QueryOpt) ->
     read_points(Name, maps:from_list(QueryOpt));
-read_points(Name, QueryOpt) ->
+do_read_points(Name, QueryOpt) ->
     case ets:lookup(influx_workers, Name) of
         [{Name, #{protocol := http} = Conf}] ->
             influx_http:read_points(Conf, QueryOpt);
@@ -87,8 +95,3 @@ read_points(Name, QueryOpt) ->
         _ ->
             {error, no_worker}
     end.
-
-read_points(Name, Query, QueryOpt) when is_map(QueryOpt)->
-    read_points(Name, QueryOpt#{q => Query});
-read_points(Name, Query, QueryOpt) when is_list(QueryOpt) ->
-    read_points(Name, [{q, Query}|QueryOpt]).
