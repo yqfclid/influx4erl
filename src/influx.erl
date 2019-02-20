@@ -16,7 +16,6 @@
          bwrite_point/1]).
 -export([read_points/2,
          read_points/3]).
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -24,15 +23,19 @@
 start() ->
     {ok, _} = application:ensure_all_started(influx).
 
+-spec register_worker(any(), map()|list()) -> true | {error, term()}.
 register_worker(Name, Conf) ->
     influx_manager:register_worker(Name, Conf).
 
+-spec delete_worker(any()) -> true | {error, term()}.
 delete_worker(Name) ->
     influx_manager:delete_worker(Name).
 
+-spec all_workers() -> list().
 all_workers() ->
     influx_manager:all_workers().
 
+-spec write_point(any(), map()|list()) -> ok | {ok, any()} | {error, term()}.
 write_point(Name, Data) when is_list(Data) ->
     write_point(Name, maps:from_list(Data));
 write_point(Name, Data) ->
@@ -54,6 +57,7 @@ write_point(Name, Data) ->
             {error, no_worker}
     end.
 
+-spec bwrite_point(list()|map()) -> ok.
 bwrite_point(Data) ->
     ets:safe_fixtable(influx_workers, true),
     do_bwrite_point(Data),
@@ -76,9 +80,11 @@ do_bwrite_point(Data, Name) ->
     end,
     do_bwrite_point(Data, ets:next(influx_workers, Name)).
 
+-spec read_points(any(), binary()) -> {ok, list()} | {error, term()}.
 read_points(Name, Query) ->
     read_points(Name, Query, #{}).
 
+-spec read_points(any(), binary(), map()|list()) -> {ok, list()} | {error, term()}.
 read_points(Name, Query, QueryOpt) when is_map(QueryOpt)->
     do_read_points(Name, QueryOpt#{q => Query});
 read_points(Name, Query, QueryOpt) when is_list(QueryOpt) ->
