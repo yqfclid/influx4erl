@@ -119,12 +119,14 @@ handle_result(#{<<"results">> := Result}) ->
                                 lists:foldl(
                                     fun(Value, Acc1) ->
                                         Maped = maps:from_list(lists:zip(Columns, Value)),
-                                        Acc1 ++ [Maped]
+                                        RAcc1 = lists:reverse(Acc1),
+                                        lists:reverse([Maped|RAcc1])
                                 end, [], Values),
                             #{<<"name">> => Name,
                               <<"points">> => RetPoints}
                     end, Series),
-                Acc0 ++ [NSeries];
+                RAcc0 = lists:reverse(Acc0),
+                lists:reverse([NSeries|RAcc0]);
                (_, Acc0) ->
                 Acc0
         end, [], Result),
