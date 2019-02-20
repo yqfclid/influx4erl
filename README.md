@@ -1,16 +1,16 @@
-# this is influx client for erlang
+## this is influx client for erlang
 
-## you can add deps in rebar.config
+### you can add deps in rebar.config
 ```
     {'influx', ".*", {git, "https://github.com/yqfclid/influx4erl", "master"}}
 ```
 
-## you need start influx client at first
+### you need start influx client at first
 ```
 influx:start().
 ```
 
-## then you need register your influx config
+### then you need register your influx config
 ```
 HttpConf = [{protocol,http},
             {host,<<"localhost">>},
@@ -24,13 +24,13 @@ influx:register_worker(udp_name, UdpConf).
 ```
 
 
-## you can delete your registerd worker by using influx:delete_worker/1
+### you can delete your registerd worker by using influx:delete_worker/1
 ```
 > influx:delete_worker(http).
 true
 ```
 
-## you can see your all workers by using influx:all_workers()
+### you can see your all workers by using influx:all_workers()
 ```
 > influx:all_workers().
 [{udp_name,#{database => undefined,host => <<"localhost">>,
@@ -41,9 +41,9 @@ true
          http_pool => undefined,password => undefined,port => 8086,
          protocol => http,username => undefined}}]
 ```
-## you can read or write point by your registered name in udp or http
+### you can read or write point by your registered name in udp or http
 
-## you can write point by http or udp
+### you can write point by http or udp
 ```
 > influx:write_point(http_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}).     
 ok
