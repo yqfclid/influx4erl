@@ -41,7 +41,6 @@ true
          http_pool => undefined,password => undefined,port => 8086,
          protocol => http,username => undefined}}]
 ```
-### you can read or write point by your registered name in udp or http
 
 ### you can write point by http or udp
 ```
@@ -51,7 +50,7 @@ ok
 ok
 ```
 
-## you can read points only by http
+### you can read points only by http
 ```
 > influx:read_points(http, <<"select * from memory_test order by time limit 1;select count(*) from memory_test">>).
 {ok,[#{<<"name">> => <<"memory_test">>,
@@ -73,4 +72,15 @@ ok
               <<"count_processes_used">> => 1000002,
               <<"count_system">> => 1000002,<<"count_total">> => 1000002,
               <<"time">> => <<"1970-01-01T00:00:00Z">>}]}]}
+```
+
+### if you want to init workers while starting application, config like this
+```
+{influx, [{load_confs, [{http_name, [{protocol, http},
+                                      {host, <<"localhost">>},
+                                      {port, 8086},
+                                      {database, <<"test">>}]},
+                         {udp_name, [{protocol, udp},
+                                     {host, <<"localhost">>},
+                                     {port, 8089}]}]}]}
 ```
