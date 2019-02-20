@@ -18,7 +18,7 @@ HttpConf = [{protocol,http},
             {database,<<"test">>}],
 UdpConf = [{protocol, udp},
            {host, <<"localhost">>},
-           {port, 8089}]
+           {port, 8089}],
 influx:register_worker(http_name, HttpConf),
 influx:register_worker(udp_name, UdpConf).
 ```
@@ -26,7 +26,7 @@ influx:register_worker(udp_name, UdpConf).
 
 ### you can delete your registerd worker by using influx:delete_worker/1
 ```
-> influx:delete_worker(http).
+> influx:delete_worker(http_name).
 true
 ```
 
@@ -46,13 +46,13 @@ true
 ```
 > influx:write_point(http_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}).     
 ok
-(influx_test@yqfdeMacBook-Pro)14> influx:write_point(udp_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}). 
+> influx:write_point(udp_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}). 
 ok
 ```
 
 ### you can read points only by http
 ```
-> influx:read_points(http, <<"select * from memory_test order by time limit 1;select count(*) from memory_test">>).
+> influx:read_points(http_name, <<"select * from memory_test order by time limit 1;select count(*) from memory_test">>).
 {ok,[#{<<"name">> => <<"memory_test">>,
        <<"points">> =>
            [#{<<"atom">> => 339465,<<"atom_used">> => 330097,
