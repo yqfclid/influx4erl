@@ -35,7 +35,7 @@ delete_worker(Name) ->
 all_workers() ->
     influx_manager:all_workers().
 
--spec write_point(any(), map()|list()) -> ok | {ok, any()} | {error, term()}.
+-spec write_point(any(), map()|list()) -> ok | {error, term()}.
 write_point(Name, Data) when is_list(Data) ->
     write_point(Name, maps:from_list(Data));
 write_point(Name, Data) ->
