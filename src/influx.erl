@@ -23,6 +23,17 @@
 start() ->
     {ok, _} = application:ensure_all_started(influx).
 
+%%% @doc
+%%% register_worker
+%%% Conf params:
+%%%     host  influxdb host
+%%%     port  influxdb port
+%%%     procotol  protocol connect to influxdb udp/http
+%%%     username  influxdb username
+%%%     password  influxdb password
+%%%     database  influx database only useful when protocol is http
+%%%     http_pool  using http pool when protocol is http
+%%% @end
 -spec register_worker(any(), map()|list()) -> true | {error, term()}.
 register_worker(Name, Conf) ->
     influx_manager:register_worker(Name, Conf).
@@ -35,6 +46,22 @@ delete_worker(Name) ->
 all_workers() ->
     influx_manager:all_workers().
 
+
+%%% @doc
+%%% write_point 
+%%% Data params:
+%%%     measurement  influxdb measurement that writing data to
+%%%     tags  data tags
+%%%     fields  data fields
+%%%     time  true:client give the writing time
+%%%           false:influxdb give the writing time
+%%%           Time(integer()):write Time to the measurment as the time writing data
+%%%     epoch  h/m/s/ms/us/ns  writing time's unit
+%%%     rp  write into influxdb database retenetion policy
+%%%     chunk_size  influxdb return data by chunk,  chunk_size is the max size of one chunk
+%%%     funs chunk_fun() :: {Mod, Fun} | function()
+%%%          once receiving chunked data, execute the functions defined in funs
+%%% @end
 -spec write_point(any(), map()|list()) -> ok | {error, term()}.
 write_point(Name, Data) when is_list(Data) ->
     write_point(Name, maps:from_list(Data));

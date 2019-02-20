@@ -170,7 +170,7 @@ timestamp(ns) ->
     round(timestamp(u) * 1000);
 timestamp(ms) ->
     round(timestamp(u) / 1000);
-timestamp(u) ->
+timestamp(us) ->
     {MegaSec, Sec, MicroSec} = os:timestamp(),
     (MegaSec * 1000000 + Sec) * 1000000 + MicroSec;
 timestamp(Arg) ->
