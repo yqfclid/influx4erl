@@ -81,7 +81,10 @@ read_stream_body(Ref, Funs) ->
             end;
         done ->
             hackney:close(Ref),
-            lists:foreach(fun(Fun) -> Fun({ok, done}) end, Funs);
+            lists:foreach(
+                fun({Mod, Fun}) -> Mod:Fun(ParsedData);
+                   (Fun) -> Fun({ok, done})
+            end, Funs);
         {error, Reason} ->
             {error, Reason}
     end.
