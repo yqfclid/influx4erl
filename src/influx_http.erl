@@ -9,7 +9,7 @@
 -module(influx_http).
 
 -export([read_points/2,
-         write_point/2]).
+         write_points/2]).
 
 %%%===================================================================
 %%% API
@@ -36,7 +36,7 @@ read_points(InfluxConf, QueryOpt) ->
             {error, Reason}
     end.    
 
-write_point(InfluxConf, Data) ->
+write_points(InfluxConf, Data) ->
     Url = influx_utils:encode_http_path(InfluxConf, write, Data),
     Payload = influx_utils:encode_writen_payload(Data),
     Pool = maps:get(http_pool, InfluxConf, default),

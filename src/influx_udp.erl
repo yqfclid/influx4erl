@@ -13,7 +13,7 @@
 %% API
 -export([start_link/2]).
 -export([start_udp/2]).
--export([write_point/2]).
+-export([write_points/2]).
 -export([stop/1]).
 
 %% gen_server callbacks
@@ -41,7 +41,7 @@ start_udp(Name, InfluxConf) ->
             {error, Reason}
     end.
     
-write_point(Pid, Data) ->
+write_points(Pid, Data) ->
     gen_server:cast(Pid, {write, Data}).
 
 stop(Pid) ->
@@ -170,7 +170,13 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{name = Name} = _State) ->
+    case ets:lookup(influx_workers, Name) of
+        [{Name, Conf}] ->
+            ets:insert(influx_workers, {Name, Conf#{pid => undefined}});
+        _ ->
+            ok
+    end,
     ok.
 
 %%--------------------------------------------------------------------

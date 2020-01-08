@@ -12,8 +12,7 @@
 -export([register_worker/2,
          delete_worker/1,
          all_workers/0]).
--export([write_point/2,
-         bwrite_point/1,
+-export([bwrite_points/1,
          write_points/2]).
 -export([read_points/2,
          read_points/3]).
@@ -49,7 +48,7 @@ all_workers() ->
 
 
 %%% @doc
-%%% write_point 
+%%% write_points 
 %%% Data params:
 %%%     measurement  influxdb measurement that writing data to
 %%%     tags  data tags
@@ -63,16 +62,14 @@ all_workers() ->
 %%%     funs chunk_fun() :: {Mod, Fun} | function()
 %%%          once receiving chunked data, execute the functions defined in funs
 %%% @end
--spec write_point(any(), map()|list()) -> ok | {error, term()}.
-write_point(Name, Data) when is_list(Data) ->
-    write_point(Name, maps:from_list(Data));
-write_point(Name, Data) ->
+-spec write_points(any(), list()) -> ok | {error, term()}.
+write_points(Name, Data) ->
     case ets:lookup(influx_workers, Name) of
         [{Name, #{protocol := http} = Conf}] ->
-            influx_http:write_point(Conf, Data);
+            influx_http:write_points(Conf, Data);
         [{Name, #{protocol := udp,
                   pid := Pid}}] when is_pid(Pid) ->
-            influx_udp:write_point(Pid, Data);
+            influx_udp:write_points(Pid, Data);
         [{Name, #{protocol := udp} = Conf}] ->
             case influx_udp:start_udp(Conf) of
                 {ok, Pid} ->
@@ -84,39 +81,18 @@ write_point(Name, Data) ->
             {error, no_worker}
     end.
 
--spec write_points(any(), list()) -> ok | {error, term()}.
-write_points(Name, Data) when is_list(Data) ->
-    case ets:lookup(influx_workers, Name) of
-        [{Name, #{protocol := http} = Conf}] ->
-            influx_http:write_point(Conf, Data);
-        [{Name, #{protocol := udp,
-                  pid := Pid}}] when is_pid(Pid) ->
-            influx_udp:write_point(Pid, Data);
-        [{Name, #{protocol := udp} = Conf}] ->
-            case influx_udp:start_udp(Conf) of
-                {ok, Pid} ->
-                    influx_udp:write_point(Pid, Data);
-                {error, Reason} ->
-                    {error, Reason}
-            end;
-        _ ->
-            {error, no_worker}
-    end;
-write_points(_Name, Data) ->
-    {error, {bad_arg, Data}}.
-
--spec bwrite_point(list()|map()) -> ok.
-bwrite_point(Data) ->
+-spec bwrite_points(list()|map()) -> ok.
+bwrite_points(Data) ->
     ets:safe_fixtable(influx_workers, true),
-    do_bwrite_point(Data),
+    do_bwrite_points(Data),
     ets:safe_fixtable(influx_workers, false).
 
-do_bwrite_point(Data) ->
-    do_bwrite_point(Data, ets:first(influx_workers)).
+do_bwrite_points(Data) ->
+    do_bwrite_points(Data, ets:first(influx_workers)).
 
-do_bwrite_point(_Data, '$end_of_table') -> 
+do_bwrite_points(_Data, '$end_of_table') -> 
     ok;
-do_bwrite_point(Data, Name) ->
+do_bwrite_points(Data, Name) ->
     case ets:lookup(influx_workers, Name) of
         [{Name, #{protocol := http} = Conf}] ->
             influx_http:write_point(Conf, Data);
@@ -126,7 +102,7 @@ do_bwrite_point(Data, Name) ->
         _ ->
             ok
     end,
-    do_bwrite_point(Data, ets:next(influx_workers, Name)).
+    do_bwrite_points(Data, ets:next(influx_workers, Name)).
 
 -spec read_points(any(), binary()) -> {ok, list()} | {error, term()}.
 read_points(Name, Query) ->
