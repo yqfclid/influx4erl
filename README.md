@@ -42,11 +42,11 @@ true
          protocol => http,username => undefined}}]
 ```
 
-### you can write point by http or udp
+### you can write points by http or udp
 ```
-> influx:write_point(http_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}).     
+> influx:write_points(http_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}).     
 ok
-> influx:write_point(udp_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}). 
+> influx:write_points(udp_name, #{measurement => <<"test">>, tags => [{<<"tag1">>, <<"1">>}], fields => [{<<"test1">>, <<"1">>}]}). 
 ok
 ```
 
