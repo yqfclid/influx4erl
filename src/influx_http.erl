@@ -82,7 +82,7 @@ read_stream_body(Ref, Funs) ->
         done ->
             hackney:close(Ref),
             lists:foreach(
-                fun({Mod, Fun}) -> Mod:Fun(ParsedData);
+                fun({Mod, Fun}) -> Mod:Fun({ok, done});
                    (Fun) -> Fun({ok, done})
             end, Funs);
         {error, Reason} ->
@@ -102,7 +102,7 @@ decode_json(<<>>) ->
     {ok, <<>>};
 decode_json(Json) ->
     try 
-        case jiffy:decode(Json, [return_maps]) of
+        case jsx:decode(Json, [return_maps]) of
             ResultMap -> {ok, ResultMap}
         end
     catch _:Exception ->
