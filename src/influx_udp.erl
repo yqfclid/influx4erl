@@ -11,8 +11,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
--export([start_udp/1]).
+-export([start_link/2]).
+-export([start_udp/2]).
 -export([write_point/2]).
 -export([stop/1]).
 
@@ -24,13 +24,13 @@
          terminate/2,
          code_change/3]).
 
--record(state, {host, port, udp_port, socket}).
+-record(state, {host, port, udp_port, socket, name}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-start_udp(InfluxConf) ->
-    case supervisor:start_child(influx_udp_sup, [InfluxConf]) of
+start_udp(Name, InfluxConf) ->
+    case supervisor:start_child(influx_udp_sup, [Name, InfluxConf]) of
         {ok, Pid} ->
             {ok, Pid};
         {ok, Pid, _Info} ->
@@ -53,8 +53,11 @@ stop(Pid) ->
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(InfluxConf) ->
-    gen_server:start_link(?MODULE, [InfluxConf], []).
+start_link(Name, InfluxConf) ->
+    ProcessName = 
+        list_to_atom(atom_to_list(?MODULE) ++ "_" ++
+                     integer_to_list(erlang:phash2(Name))),
+    gen_server:start_link({local, ProcessName}, ?MODULE, [Name, InfluxConf], []).
 
 
 %%%===================================================================
@@ -72,16 +75,18 @@ start_link(InfluxConf) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([#{host := Host,
-        port := Port}]) ->
+init([Name, #{host := Host,
+              port := Port} = Conf]) ->
     case gen_udp:open(0, [binary, {active, false}, {broadcast, true}]) of
         {ok, Socket} ->
             case inet:port(Socket) of
                 {ok, LocalPort} ->
+                    ets:insert(influx_workers, {Name, Conf#{pid => self()}}),
                     {ok, #state{host = Host,
                                 port = Port,
                                 socket = Socket,
-                                udp_port = LocalPort}};
+                                udp_port = LocalPort,
+                                name = Name}};
                 {error, Reason} ->
                     lager:warning("parse local udp port failed: ~p", [Reason]),
                     ignore

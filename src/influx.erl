@@ -13,7 +13,8 @@
          delete_worker/1,
          all_workers/0]).
 -export([write_point/2,
-         bwrite_point/1]).
+         bwrite_point/1,
+         write_points/2]).
 -export([read_points/2,
          read_points/3]).
 %%%===================================================================
@@ -75,7 +76,6 @@ write_point(Name, Data) ->
         [{Name, #{protocol := udp} = Conf}] ->
             case influx_udp:start_udp(Conf) of
                 {ok, Pid} ->
-                    ets:insert(influx_workers, {Name, Conf#{pid => Pid}}),
                     influx_udp:write_point(Pid, Data);
                 {error, Reason} ->
                     {error, Reason}
@@ -83,6 +83,27 @@ write_point(Name, Data) ->
         _ ->
             {error, no_worker}
     end.
+
+-spec write_points(any(), list()) -> ok | {error, term()}.
+write_points(Name, Data) when is_list(Data) ->
+    case ets:lookup(influx_workers, Name) of
+        [{Name, #{protocol := http} = Conf}] ->
+            influx_http:write_point(Conf, Data);
+        [{Name, #{protocol := udp,
+                  pid := Pid}}] when is_pid(Pid) ->
+            influx_udp:write_point(Pid, Data);
+        [{Name, #{protocol := udp} = Conf}] ->
+            case influx_udp:start_udp(Conf) of
+                {ok, Pid} ->
+                    influx_udp:write_point(Pid, Data);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        _ ->
+            {error, no_worker}
+    end;
+write_points(_Name, Data) ->
+    {error, {bad_arg, Data}}.
 
 -spec bwrite_point(list()|map()) -> ok.
 bwrite_point(Data) ->

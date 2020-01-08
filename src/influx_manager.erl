@@ -52,12 +52,7 @@ register_worker(Name, Conf) when is_list(Conf) ->
                         http_pool => HttpPool},
             case Protocol of
                 udp ->
-                    case influx_udp:start_udp(ConfMap) of
-                        {ok, Pid} ->
-                            ets:insert_new(influx_workers, {Name, ConfMap#{pid => Pid}});
-                        {error, Reason} ->
-                            {error, Reason}
-                    end;
+                    influx_udp:start_udp(Name, ConfMap);
                 _ ->
                     ets:insert_new(influx_workers, {Name, ConfMap})
             end;

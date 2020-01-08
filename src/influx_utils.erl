@@ -16,13 +16,23 @@
 -define(SPACE, <<" ">>).
 -define(COMMA, <<",">>).
 -define(EQUAL, <<"=">>).
+-define(NEWLINE, <<"\n">>).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-encode_writen_payload(#{measurement := Measurement,
-                        tags := Tags,
-                        fields := Fields} = Data) ->
+encode_writen_payload(Data) when is_list(Data) ->
+    lists:foldl(
+        fun(PointData, Acc) ->
+            Line = encode_line(PointData),
+            <<Acc/binary, Line/binary, ?NEWLINE/binary>>
+    end, <<>>, Data);
+encode_writen_payload(Data) ->
+    encode_line(Data).
+
+encode_line(#{measurement := Measurement,
+              tags := Tags,
+              fields := Fields} = Data) ->
     MeasurementB = to_binary(Measurement),
     TimeB = 
         case maps:get(time, Data, false) of
@@ -42,7 +52,7 @@ encode_writen_payload(#{measurement := Measurement,
         _ ->
             <<MeasurementB/binary, TagsB/binary, ?SPACE/binary, FieldsB/binary, ?SPACE/binary, TimeB/binary>>
     end;
-encode_writen_payload(_Data) ->
+encode_line(_Data) ->
     erlang:throw(badarg).
     
 encode_http_path(Conf, Action, Data) ->
