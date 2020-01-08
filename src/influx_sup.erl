@@ -48,7 +48,7 @@ init([]) ->
     Proc2 = 
       #{id => influx_udp_sup,              
           start => {supervisor, start_link, [{local, influx_udp_sup}, ?MODULE, [influx_udp_sup]]},
-          restart => temporary,
+          restart => transient,
           shutdown => infinity,
           type => supervisor,
           modules => [influx_udp_sup]},
@@ -62,7 +62,7 @@ init([influx_udp_sup]) ->
     Proc1 = 
       #{id => influx_udp,              
           start => {influx_udp, start_link, []},
-          restart => transient,
+          restart => temporary,
           shutdown => infinity,
           type => worker,
           modules => [influx_udp]},
