@@ -54,10 +54,7 @@ stop(Pid) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link(Name, InfluxConf) ->
-    ProcessName = 
-        list_to_atom(atom_to_list(?MODULE) ++ "_" ++
-                     integer_to_list(erlang:phash2(Name))),
-    gen_server:start_link({local, ProcessName}, ?MODULE, [Name, InfluxConf], []).
+    gen_server:start_link(?MODULE, [Name, InfluxConf], []).
 
 
 %%%===================================================================
