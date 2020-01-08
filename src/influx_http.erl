@@ -37,7 +37,7 @@ read_points(InfluxConf, QueryOpt) ->
     end.    
 
 write_points(InfluxConf, Data) ->
-    Url = influx_utils:encode_http_path(InfluxConf, write, Data),
+    Url = influx_utils:encode_http_path(InfluxConf, write, #{}),
     Payload = influx_utils:encode_writen_payload(Data),
     Pool = maps:get(http_pool, InfluxConf, default),
     case hackney:request(post, Url, [], Payload, [{pool, Pool}]) of

@@ -55,7 +55,7 @@ encode_line(#{measurement := Measurement,
 encode_line(_Data) ->
     erlang:throw(badarg).
     
-encode_http_path(Conf, Action, Data) ->
+encode_http_path(Conf, Action, QueryOpt) ->
     #{host := Host,
       port := Port,
       username := UserName,
@@ -101,9 +101,9 @@ encode_http_path(Conf, Action, Data) ->
            (_, _, Acc) ->
             Acc
         end,
-    Path1 = maps:fold(F, <<>>, Data#{username => UserName, 
-                                     password => Password,
-                                     database => Database}),
+    Path1 = maps:fold(F, <<>>, QueryOpt#{username => UserName, 
+                                         password => Password,
+                                         database => Database}),
     NPath1 = remove_trailing(Path1),
     <<Path0/binary, NPath1/binary>>.
 %%%===================================================================
